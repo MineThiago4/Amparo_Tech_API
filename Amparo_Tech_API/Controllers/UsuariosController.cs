@@ -1,9 +1,9 @@
 ﻿using Amparo_Tech_API.Data;
 using Amparo_Tech_API.DTOs;
 using Amparo_Tech_API.Models;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 
 namespace Amparo_Tech_API.Controllers
 {
@@ -17,14 +17,34 @@ namespace Amparo_Tech_API.Controllers
         {
             _context = context;
         }
-        // Endpoint para Inserir(Create)
+
+        // Cadastro de usuário com hash de senha
         [HttpPost]
-        public async Task<ActionResult<Usuariologin>> PostUsuarioCompleto(UsuarioCadastroDTO usuarioDto)
+        public async Task<ActionResult> PostUsuarioCompleto([FromBody] UsuarioCadastroDTO usuarioDto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            if (await _context.usuariologin.AnyAsync(u => u.Email == usuarioDto.Email))
+                return BadRequest("E-mail já cadastrado.");
+
+            if (await _context.usuariologin.AnyAsync(u => u.Cpf == usuarioDto.Cpf))
+                return BadRequest("CPF já cadastrado.");
+
+            if (!Enum.TryParse<TipoUsuarioEnum>(usuarioDto.TipoUsuario, out var tipoUsuario))
+                return BadRequest("Tipo de usuário inválido.");
+
             try
             {
                 Endereco endereco = null;
-                if (!string.IsNullOrWhiteSpace(usuarioDto.Cep) || !string.IsNullOrWhiteSpace(usuarioDto.Logradouro))
+                bool algumEnderecoPreenchido =
+                    !string.IsNullOrWhiteSpace(usuarioDto.Cep) ||
+                    !string.IsNullOrWhiteSpace(usuarioDto.Logradouro) ||
+                    !string.IsNullOrWhiteSpace(usuarioDto.Numero) ||
+                    !string.IsNullOrWhiteSpace(usuarioDto.Cidade) ||
+                    !string.IsNullOrWhiteSpace(usuarioDto.Estado);
+
+                if (algumEnderecoPreenchido)
                 {
                     endereco = new Endereco
                     {
@@ -38,37 +58,76 @@ namespace Amparo_Tech_API.Controllers
                     };
                 }
 
-                // Cria a instância de Usuariologin e associa o Endereco (que pode ser nulo)
+                // Hash da senha
+                var senhaHash = BCrypt.Net.BCrypt.HashPassword(usuarioDto.Senha);
+
                 var usuario = new Usuariologin
                 {
                     Nome = usuarioDto.Nome,
                     Cpf = usuarioDto.Cpf,
                     Email = usuarioDto.Email,
-                    Senha = usuarioDto.Senha,
-                    TipoUsuario = (TipoUsuarioEnum)Enum.Parse(typeof(TipoUsuarioEnum), usuarioDto.TipoUsuario),
+                    Senha = senhaHash,
+                    TipoUsuario = tipoUsuario,
                     DataCadastro = DateTime.Now,
                     Telefone = usuarioDto.Telefone,
-                    Endereco = endereco // Associa a instância (pode ser null)
+                    Endereco = endereco
                 };
 
-                // Adiciona o usuário ao contexto. O Entity Framework Core
-                // irá automaticamente detectar que o Endereco é um novo objeto
-                // e irá inseri-lo primeiro, para depois inserir o usuário
-                // e criar o relacionamento (ForeignKey).
                 _context.usuariologin.Add(usuario);
-
                 await _context.SaveChangesAsync();
 
-                // Retorna o usuário criado.
-                return CreatedAtAction(nameof(PostUsuarioCompleto), new { id = usuario.IdUsuario }, usuario);
+                // Retorno seguro, sem senha
+                var usuarioRetorno = new
+                {
+                    usuario.IdUsuario,
+                    usuario.Nome,
+                    usuario.Cpf,
+                    usuario.Email,
+                    usuario.TipoUsuario,
+                    usuario.DataCadastro,
+                    usuario.Telefone,
+                    Endereco = usuario.Endereco
+                };
 
+                return CreatedAtAction(nameof(PostUsuarioCompleto), new { id = usuario.IdUsuario }, usuarioRetorno);
             }
             catch (Exception ex)
             {
-                // Em caso de erro, retorna um BadRequest com a mensagem de erro
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        // Login seguro
+        [HttpPost("login")]
+        public async Task<ActionResult> Login([FromBody] LoginDTO loginDto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var usuario = await _context.usuariologin
+                .Include(u => u.Endereco)
+                .FirstOrDefaultAsync(u => u.Email == loginDto.Email);
+
+            if (usuario == null)
+                return Unauthorized("Usuário não encontrado.");
+
+            // Verifica o hash da senha
+            if (!BCrypt.Net.BCrypt.Verify(loginDto.Senha, usuario.Senha))
+                return Unauthorized("Senha incorreta.");
+
+            var usuarioRetorno = new
+            {
+                usuario.IdUsuario,
+                usuario.Nome,
+                usuario.Email,
+                usuario.TipoUsuario,
+                usuario.Telefone,
+                usuario.Endereco
+            };
+
+            return Ok(usuarioRetorno);
+        }
+
         // Endpoint para Visualizar (Read) - Lista todos os usuários
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Usuariologin>>> GetUsuarios()
@@ -98,10 +157,27 @@ namespace Amparo_Tech_API.Controllers
         {
             if (id != usuario.IdUsuario)
             {
-                return BadRequest(); // Retorna 400 se o ID na URL não for igual ao ID do corpo
+                return BadRequest();
             }
 
-            // Avisa o Entity Framework que o objeto foi modificado
+            // Busca o usuário atual no banco
+            var usuarioAtual = await _context.usuariologin.AsNoTracking().FirstOrDefaultAsync(u => u.IdUsuario == id);
+            if (usuarioAtual == null)
+            {
+                return NotFound();
+            }
+
+            // Se a senha foi alterada, gera o hash
+            if (!string.IsNullOrWhiteSpace(usuario.Senha) && usuario.Senha != usuarioAtual.Senha)
+            {
+                usuario.Senha = BCrypt.Net.BCrypt.HashPassword(usuario.Senha);
+            }
+            else
+            {
+                // Mantém o hash existente se não foi alterada
+                usuario.Senha = usuarioAtual.Senha;
+            }
+
             _context.Entry(usuario).State = EntityState.Modified;
 
             try
@@ -110,7 +186,6 @@ namespace Amparo_Tech_API.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                // Verifica se o usuário realmente existe antes de tentar salvar
                 if (!_context.usuariologin.Any(e => e.IdUsuario == id))
                 {
                     return NotFound();
@@ -121,7 +196,7 @@ namespace Amparo_Tech_API.Controllers
                 }
             }
 
-            return NoContent(); // Retorna 204 para indicar sucesso sem conteúdo de resposta
+            return NoContent();
         }
 
         // Endpoint para Apagar (Delete)
