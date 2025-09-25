@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Collections.Generic;
 
 namespace Amparo_Tech_API.DTOs
 {
@@ -28,12 +27,12 @@ namespace Amparo_Tech_API.DTOs
         public string? Telefone { get; set; }
 
         // Propriedades do endereço (não obrigatórias por padrão)
-        public string Cep { get; set; }
-        public string Logradouro { get; set; }
-        public string Numero { get; set; }
-        public string Complemento { get; set; }
-        public string Cidade { get; set; }
-        public string Estado { get; set; }
+        public string? Cep { get; set; }
+        public string? Logradouro { get; set; }
+        public string? Numero { get; set; }
+        public string? Complemento { get; set; }
+        public string? Cidade { get; set; }
+        public string? Estado { get; set; }
         public string? InformacoesAdicionais { get; set; }
 
         // Validação condicional dos campos de endereço

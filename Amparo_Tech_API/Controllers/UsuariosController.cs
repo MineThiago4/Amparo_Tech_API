@@ -3,14 +3,15 @@ using Amparo_Tech_API.DTOs;
 using Amparo_Tech_API.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.ComponentModel.DataAnnotations;
 
 namespace Amparo_Tech_API.Controllers
 {
+    // Controller responsável pelos endpoints de usuários (CRUD, login, validações)
     [Route("api/[controller]")]
     [ApiController]
     public class UsuariosController : ControllerBase
     {
+        // Injeta o contexto do banco de dados
         private readonly AppDbContext _context;
 
         public UsuariosController(AppDbContext context)
@@ -18,24 +19,27 @@ namespace Amparo_Tech_API.Controllers
             _context = context;
         }
 
-        // Cadastro de usuário com hash de senha
+        // Cadastro de usuário (com hash de senha e validação de dados)
         [HttpPost]
         public async Task<ActionResult> PostUsuarioCompleto([FromBody] UsuarioCadastroDTO usuarioDto)
         {
+            // Valida os dados recebidos
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            // Verifica duplicidade de e-mail e CPF
             if (await _context.usuariologin.AnyAsync(u => u.Email == usuarioDto.Email))
                 return BadRequest("E-mail já cadastrado.");
-
             if (await _context.usuariologin.AnyAsync(u => u.Cpf == usuarioDto.Cpf))
                 return BadRequest("CPF já cadastrado.");
 
+            // Valida o tipo de usuário
             if (!Enum.TryParse<TipoUsuarioEnum>(usuarioDto.TipoUsuario, out var tipoUsuario))
                 return BadRequest("Tipo de usuário inválido.");
 
             try
             {
+                // Cria endereço se algum campo foi preenchido
                 Endereco endereco = null;
                 bool algumEnderecoPreenchido =
                     !string.IsNullOrWhiteSpace(usuarioDto.Cep) ||
@@ -58,9 +62,10 @@ namespace Amparo_Tech_API.Controllers
                     };
                 }
 
-                // Hash da senha
+                // Gera hash da senha
                 var senhaHash = BCrypt.Net.BCrypt.HashPassword(usuarioDto.Senha);
 
+                // Cria usuário
                 var usuario = new Usuariologin
                 {
                     Nome = usuarioDto.Nome,
@@ -73,10 +78,11 @@ namespace Amparo_Tech_API.Controllers
                     Endereco = endereco
                 };
 
+                // Salva usuário no banco
                 _context.usuariologin.Add(usuario);
                 await _context.SaveChangesAsync();
 
-                // Retorno seguro, sem senha
+                // Retorna dados do usuário sem senha
                 var usuarioRetorno = new
                 {
                     usuario.IdUsuario,
@@ -97,13 +103,14 @@ namespace Amparo_Tech_API.Controllers
             }
         }
 
-        // Login seguro
+        // Login do usuário (valida senha via hash)
         [HttpPost("login")]
         public async Task<ActionResult> Login([FromBody] LoginDTO loginDto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            // Busca usuário por e-mail
             var usuario = await _context.usuariologin
                 .Include(u => u.Endereco)
                 .FirstOrDefaultAsync(u => u.Email == loginDto.Email);
@@ -111,10 +118,11 @@ namespace Amparo_Tech_API.Controllers
             if (usuario == null)
                 return Unauthorized("Usuário não encontrado.");
 
-            // Verifica o hash da senha
+            // Verifica senha (hash)
             if (!BCrypt.Net.BCrypt.Verify(loginDto.Senha, usuario.Senha))
                 return Unauthorized("Senha incorreta.");
 
+            // Retorna dados do usuário sem senha
             var usuarioRetorno = new
             {
                 usuario.IdUsuario,
@@ -128,30 +136,57 @@ namespace Amparo_Tech_API.Controllers
             return Ok(usuarioRetorno);
         }
 
-        // Endpoint para Visualizar (Read) - Lista todos os usuários
+        // Lista todos os usuários (sem senha)
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Usuariologin>>> GetUsuarios()
+        public async Task<ActionResult<IEnumerable<object>>> GetUsuarios()
         {
-            // Retorna a lista de todos os usuários com seus endereços relacionados
-            return await _context.usuariologin.Include(u => u.Endereco).ToListAsync();
+            var usuarios = await _context.usuariologin
+                .Include(u => u.Endereco)
+                .Select(u => new
+                {
+                    u.IdUsuario,
+                    u.Nome,
+                    u.Cpf,
+                    u.Email,
+                    u.TipoUsuario,
+                    u.DataCadastro,
+                    u.Telefone,
+                    u.Endereco
+                })
+                .ToListAsync();
+
+            return Ok(usuarios);
         }
 
-        // Endpoint para Visualizar (Read) - Pega um usuário por ID
+        // Busca usuário por ID (sem senha)
         [HttpGet("{id}")]
-        public async Task<ActionResult<Usuariologin>> GetUsuario(int id)
+        public async Task<ActionResult<object>> GetUsuario(int id)
         {
-            // Procura o usuário no banco de dados e inclui o endereço
-            var usuario = await _context.usuariologin.Include(u => u.Endereco).FirstOrDefaultAsync(u => u.IdUsuario == id);
+            var usuario = await _context.usuariologin
+                .Include(u => u.Endereco)
+                .FirstOrDefaultAsync(u => u.IdUsuario == id);
 
             if (usuario == null)
             {
-                return NotFound(); // Retorna 404 se o usuário não for encontrado
+                return NotFound();
             }
 
-            return usuario;
+            var usuarioRetorno = new
+            {
+                usuario.IdUsuario,
+                usuario.Nome,
+                usuario.Cpf,
+                usuario.Email,
+                usuario.TipoUsuario,
+                usuario.DataCadastro,
+                usuario.Telefone,
+                usuario.Endereco
+            };
+
+            return Ok(usuarioRetorno);
         }
 
-        // Endpoint para Alterar (Update)
+        // Atualiza dados do usuário (mantém hash da senha)
         [HttpPut("{id}")]
         public async Task<IActionResult> PutUsuario(int id, Usuariologin usuario)
         {
@@ -160,21 +195,20 @@ namespace Amparo_Tech_API.Controllers
                 return BadRequest();
             }
 
-            // Busca o usuário atual no banco
+            // Busca usuário atual
             var usuarioAtual = await _context.usuariologin.AsNoTracking().FirstOrDefaultAsync(u => u.IdUsuario == id);
             if (usuarioAtual == null)
             {
                 return NotFound();
             }
 
-            // Se a senha foi alterada, gera o hash
+            // Atualiza hash da senha se necessário
             if (!string.IsNullOrWhiteSpace(usuario.Senha) && usuario.Senha != usuarioAtual.Senha)
             {
                 usuario.Senha = BCrypt.Net.BCrypt.HashPassword(usuario.Senha);
             }
             else
             {
-                // Mantém o hash existente se não foi alterada
                 usuario.Senha = usuarioAtual.Senha;
             }
 
@@ -196,10 +230,23 @@ namespace Amparo_Tech_API.Controllers
                 }
             }
 
-            return NoContent();
+            // Retorna dados do usuário sem senha
+            var usuarioRetorno = new
+            {
+                usuario.IdUsuario,
+                usuario.Nome,
+                usuario.Cpf,
+                usuario.Email,
+                usuario.TipoUsuario,
+                usuario.DataCadastro,
+                usuario.Telefone,
+                usuario.Endereco
+            };
+
+            return Ok(usuarioRetorno);
         }
 
-        // Endpoint para Apagar (Delete)
+        // Remove usuário
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUsuario(int id)
         {
@@ -207,16 +254,16 @@ namespace Amparo_Tech_API.Controllers
 
             if (usuario == null)
             {
-                return NotFound(); // Retorna 404 se o usuário não for encontrado
+                return NotFound();
             }
 
             _context.usuariologin.Remove(usuario);
             await _context.SaveChangesAsync();
 
-            return NoContent(); // Retorna 204 para indicar sucesso
+            return NoContent();
         }
 
-        // Endpoint para verificar se um e-mail já existe
+        // Verifica se e-mail já existe
         [HttpGet("email-existe")]
         public async Task<ActionResult<bool>> VerificarEmailExistente(string email)
         {
@@ -225,13 +272,11 @@ namespace Amparo_Tech_API.Controllers
                 return BadRequest("O e-mail não pode ser vazio.");
             }
 
-            // Verifica se existe algum usuário com o e-mail fornecido
             var existe = await _context.usuariologin.AnyAsync(u => u.Email == email);
-
-            return Ok(existe); // Retorna 'true' se existir, 'false' se não
+            return Ok(existe);
         }
 
-        // Endpoint para verificar se um CPF já existe
+        // Verifica se CPF já existe
         [HttpGet("cpf-existe")]
         public async Task<ActionResult<bool>> VerificarCpfExistente(string cpf)
         {
@@ -240,10 +285,8 @@ namespace Amparo_Tech_API.Controllers
                 return BadRequest("O CPF não pode ser vazio.");
             }
 
-            // Verifica se existe algum usuário com o CPF fornecido
             var existe = await _context.usuariologin.AnyAsync(u => u.Cpf == cpf);
-
-            return Ok(existe); // Retorna 'true' se existir, 'false' se não
+            return Ok(existe);
         }
     }
 }

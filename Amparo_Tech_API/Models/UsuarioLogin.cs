@@ -44,6 +44,6 @@ namespace Amparo_Tech_API.Models
     public enum TipoUsuarioEnum
     {
         Doador,
-        Beneficiario
+        Beneficiário
     }
 }
