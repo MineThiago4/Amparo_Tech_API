@@ -42,6 +42,7 @@ namespace Amparo_Tech_API.DTOs
                 !string.IsNullOrWhiteSpace(Cep) ||
                 !string.IsNullOrWhiteSpace(Logradouro) ||
                 !string.IsNullOrWhiteSpace(Numero) ||
+                !string.IsNullOrWhiteSpace(Complemento) ||
                 !string.IsNullOrWhiteSpace(Cidade) ||
                 !string.IsNullOrWhiteSpace(Estado);
 
@@ -55,6 +56,9 @@ namespace Amparo_Tech_API.DTOs
 
                 if (string.IsNullOrWhiteSpace(Numero))
                     yield return new ValidationResult("O número é obrigatório quando qualquer campo de endereço é preenchido.", new[] { nameof(Numero) });
+
+                if (string.IsNullOrWhiteSpace(Complemento))
+                    yield return new ValidationResult("O complemento é obrigatório quando qualquer campo de endereço é preenchido.", new[] { nameof(Complemento) });
 
                 if (string.IsNullOrWhiteSpace(Cidade))
                     yield return new ValidationResult("A cidade é obrigatória quando qualquer campo de endereço é preenchido.", new[] { nameof(Cidade) });
