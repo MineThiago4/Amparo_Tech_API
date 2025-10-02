@@ -310,7 +310,7 @@ namespace Amparo_Tech_API.Controllers
                 audience: _configuration["Jwt:Audience"],
                 claims: claims,
                 expires: DateTime.Now.AddHours(2),
-                signingCredentials: creds // <-- aqui está a correção!
+                signingCredentials: creds
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
