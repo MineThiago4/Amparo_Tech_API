@@ -67,7 +67,7 @@ namespace Amparo_Tech_API.Migrations
 
                     b.HasKey("IdEndereco");
 
-                    b.ToTable("endereco");
+                    b.ToTable("endereco", (string)null);
                 });
 
             modelBuilder.Entity("Amparo_Tech_API.Models.Usuariologin", b =>
@@ -124,7 +124,7 @@ namespace Amparo_Tech_API.Migrations
 
                     b.HasIndex("IdEndereco");
 
-                    b.ToTable("usuariologin");
+                    b.ToTable("usuariologin", (string)null);
                 });
 
             modelBuilder.Entity("Amparo_Tech_API.Models.Usuariologin", b =>

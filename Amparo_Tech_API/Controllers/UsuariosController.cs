@@ -3,6 +3,9 @@ using Amparo_Tech_API.DTOs;
 using Amparo_Tech_API.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace Amparo_Tech_API.Controllers
 {
@@ -11,12 +14,14 @@ namespace Amparo_Tech_API.Controllers
     [ApiController]
     public class UsuariosController : ControllerBase
     {
-        // Injeta o contexto do banco de dados
-        private readonly AppDbContext _context;
 
-        public UsuariosController(AppDbContext context)
+        private readonly AppDbContext _context;
+        private readonly IConfiguration _configuration;
+
+        public UsuariosController(AppDbContext context, IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
         // Cadastro de usuário (com hash de senha e validação de dados)
@@ -110,7 +115,6 @@ namespace Amparo_Tech_API.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            // Busca usuário por e-mail
             var usuario = await _context.usuariologin
                 .Include(u => u.Endereco)
                 .FirstOrDefaultAsync(u => u.Email == loginDto.Email);
@@ -118,22 +122,18 @@ namespace Amparo_Tech_API.Controllers
             if (usuario == null)
                 return Unauthorized("Usuário não encontrado.");
 
-            // Verifica senha (hash)
             if (!BCrypt.Net.BCrypt.Verify(loginDto.Senha, usuario.Senha))
                 return Unauthorized("Senha incorreta.");
 
-            // Retorna dados do usuário sem senha
-            var usuarioRetorno = new
-            {
-                usuario.IdUsuario,
-                usuario.Nome,
-                usuario.Email,
-                usuario.TipoUsuario,
-                usuario.Telefone,
-                usuario.Endereco
-            };
+            // Gera o token JWT
+            var token = GerarToken(usuario);
 
-            return Ok(usuarioRetorno);
+            // Retorna apenas o token e mensagem
+            return Ok(new
+            {
+                Token = token,
+                Mensagem = "Login realizado com sucesso"
+            });
         }
 
         // Lista todos os usuários (sem senha)
@@ -288,5 +288,33 @@ namespace Amparo_Tech_API.Controllers
             var existe = await _context.usuariologin.AnyAsync(u => u.Cpf == cpf);
             return Ok(existe);
         }
+
+        private string GerarToken(Usuariologin usuario)
+        {
+            var keyString = _configuration["Jwt:Key"];
+            if (string.IsNullOrEmpty(keyString) || keyString.Length < 16)
+                throw new Exception("A chave JWT deve ter pelo menos 16 caracteres.");
+
+            var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(keyString));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+        new Claim(JwtRegisteredClaimNames.Sub, usuario.Email),
+        new Claim("idUsuario", usuario.IdUsuario.ToString()),
+        new Claim("tipoUsuario", usuario.TipoUsuario.ToString())
+    };
+
+            var token = new JwtSecurityToken(
+                issuer: _configuration["Jwt:Issuer"],
+                audience: _configuration["Jwt:Audience"],
+                claims: claims,
+                expires: DateTime.Now.AddHours(2),
+                signingCredentials: creds // <-- aqui está a correção!
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
     }
 }
