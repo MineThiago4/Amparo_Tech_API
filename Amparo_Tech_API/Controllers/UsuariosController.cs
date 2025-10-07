@@ -35,7 +35,7 @@ namespace Amparo_Tech_API.Controllers
             // Verifica duplicidade de e-mail e CPF
             if (await _context.usuariologin.AnyAsync(u => u.Email == usuarioDto.Email))
                 return BadRequest("E-mail já cadastrado.");
-            if (await _context.usuariologin.AnyAsync(u => u.Cpf == usuarioDto.Cpf))
+            if (!string.IsNullOrWhiteSpace(usuarioDto.Cpf) && await _context.usuariologin.AnyAsync(u => u.Cpf == usuarioDto.Cpf))
                 return BadRequest("CPF já cadastrado.");
 
             // Valida o tipo de usuário
@@ -282,7 +282,8 @@ namespace Amparo_Tech_API.Controllers
         {
             if (string.IsNullOrEmpty(cpf))
             {
-                return BadRequest("O CPF não pode ser vazio.");
+                // CPF não informado, considera como não existente (opcional)
+                return Ok(false);
             }
 
             var existe = await _context.usuariologin.AnyAsync(u => u.Cpf == cpf);

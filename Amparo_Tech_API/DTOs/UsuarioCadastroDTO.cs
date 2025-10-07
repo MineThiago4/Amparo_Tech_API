@@ -9,9 +9,7 @@ namespace Amparo_Tech_API.DTOs
         [StringLength(100, ErrorMessage = "O nome deve ter até 100 caracteres.")]
         public string Nome { get; set; }
 
-        [Required(ErrorMessage = "O CPF é obrigatório.")]
-        [RegularExpression(@"^\d{11}$", ErrorMessage = "O CPF deve conter 11 dígitos numéricos.")]
-        public string Cpf { get; set; }
+        public string? Cpf { get; set; }
 
         [Required(ErrorMessage = "O e-mail é obrigatório.")]
         [EmailAddress(ErrorMessage = "E-mail em formato inválido.")]
@@ -38,6 +36,13 @@ namespace Amparo_Tech_API.DTOs
         // Validação condicional dos campos de endereço
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
+
+            // Validação condicional do CPF
+            if (!string.IsNullOrWhiteSpace(Cpf) && !System.Text.RegularExpressions.Regex.IsMatch(Cpf, @"^\d{11}$"))
+            {
+                yield return new ValidationResult("O CPF deve conter 11 dígitos numéricos.", new[] { nameof(Cpf) });
+            }
+
             bool algumEnderecoPreenchido =
                 !string.IsNullOrWhiteSpace(Cep) ||
                 !string.IsNullOrWhiteSpace(Logradouro) ||

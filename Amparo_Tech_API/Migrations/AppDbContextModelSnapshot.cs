@@ -67,7 +67,7 @@ namespace Amparo_Tech_API.Migrations
 
                     b.HasKey("IdEndereco");
 
-                    b.ToTable("endereco", (string)null);
+                    b.ToTable("endereco");
                 });
 
             modelBuilder.Entity("Amparo_Tech_API.Models.Usuariologin", b =>
@@ -80,7 +80,6 @@ namespace Amparo_Tech_API.Migrations
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdUsuario"));
 
                     b.Property<string>("Cpf")
-                        .IsRequired()
                         .HasColumnType("longtext")
                         .HasColumnName("cpf");
 
@@ -124,7 +123,7 @@ namespace Amparo_Tech_API.Migrations
 
                     b.HasIndex("IdEndereco");
 
-                    b.ToTable("usuariologin", (string)null);
+                    b.ToTable("usuariologin");
                 });
 
             modelBuilder.Entity("Amparo_Tech_API.Models.Usuariologin", b =>
