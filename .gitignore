@@ -367,3 +367,6 @@ migrations/
 
 # Ignorar arquivo appsettings.json
 appsettings.json
+
+# Ignorar arquivo de contexto CopilotContext.txt
+CopilotContext.txt

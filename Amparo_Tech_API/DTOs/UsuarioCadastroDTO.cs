@@ -24,6 +24,9 @@ namespace Amparo_Tech_API.DTOs
 
         public string? Telefone { get; set; }
 
+        // Novo: Data de nascimento
+        public DateOnly? DataNascimento { get; set; }
+
         // Propriedades do endereço (não obrigatórias por padrão)
         public string? Cep { get; set; }
         public string? Logradouro { get; set; }

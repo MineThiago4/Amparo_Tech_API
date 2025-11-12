@@ -6,26 +6,32 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Amparo_Tech_API.Services;
 
 namespace Amparo_Tech_API.Controllers
 {
     // Controller responsável pelos endpoints de usuários (CRUD, login, validações)
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class UsuariosController : ControllerBase
     {
 
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly IUserContextService _userCtx;
 
-        public UsuariosController(AppDbContext context, IConfiguration configuration)
+        public UsuariosController(AppDbContext context, IConfiguration configuration, IUserContextService userCtx)
         {
             _context = context;
             _configuration = configuration;
+            _userCtx = userCtx;
         }
 
         // Cadastro de usuário (com hash de senha e validação de dados)
         [HttpPost]
+        [AllowAnonymous]
         public async Task<ActionResult> PostUsuarioCompleto([FromBody] UsuarioCadastroDTO usuarioDto)
         {
             // Valida os dados recebidos
@@ -45,7 +51,7 @@ namespace Amparo_Tech_API.Controllers
             try
             {
                 // Cria endereço se algum campo foi preenchido
-                Endereco endereco = null;
+                Endereco? endereco = null;
                 bool algumEnderecoPreenchido =
                     !string.IsNullOrWhiteSpace(usuarioDto.Cep) ||
                     !string.IsNullOrWhiteSpace(usuarioDto.Logradouro) ||
@@ -80,7 +86,8 @@ namespace Amparo_Tech_API.Controllers
                     TipoUsuario = tipoUsuario,
                     DataCadastro = DateTime.Now,
                     Telefone = usuarioDto.Telefone,
-                    Endereco = endereco
+                    Endereco = endereco,
+                    DataNascimento = usuarioDto.DataNascimento
                 };
 
                 // Salva usuário no banco
@@ -97,7 +104,8 @@ namespace Amparo_Tech_API.Controllers
                     usuario.TipoUsuario,
                     usuario.DataCadastro,
                     usuario.Telefone,
-                    Endereco = usuario.Endereco
+                    Endereco = usuario.Endereco,
+                    usuario.DataNascimento
                 };
 
                 return CreatedAtAction(nameof(PostUsuarioCompleto), new { id = usuario.IdUsuario }, usuarioRetorno);
@@ -110,6 +118,7 @@ namespace Amparo_Tech_API.Controllers
 
         // Login do usuário (valida senha via hash)
         [HttpPost("login")]
+        [AllowAnonymous]
         public async Task<ActionResult> Login([FromBody] LoginDTO loginDto)
         {
             if (!ModelState.IsValid)
@@ -125,14 +134,21 @@ namespace Amparo_Tech_API.Controllers
             if (!BCrypt.Net.BCrypt.Verify(loginDto.Senha, usuario.Senha))
                 return Unauthorized("Senha incorreta.");
 
+            // Atualiza último login
+            usuario.UltimoLogin = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
             // Gera o token JWT
             var token = GerarToken(usuario);
 
-            // Retorna apenas o token e mensagem
+            // Exemplo de uso do serviço (apenas para padronização futura)
+            _ = _userCtx.GetTipoUsuario(User);
+
             return Ok(new
             {
-                Token = token,
-                Mensagem = "Login realizado com sucesso"
+                token,
+                mensagem = "Login realizado com sucesso",
+                tipoUsuario = usuario.TipoUsuario.ToString()
             });
         }
 
@@ -140,6 +156,7 @@ namespace Amparo_Tech_API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<object>>> GetUsuarios()
         {
+            _ = _userCtx.GetUserId(User);
             var usuarios = await _context.usuariologin
                 .Include(u => u.Endereco)
                 .Select(u => new
@@ -151,7 +168,8 @@ namespace Amparo_Tech_API.Controllers
                     u.TipoUsuario,
                     u.DataCadastro,
                     u.Telefone,
-                    u.Endereco
+                    u.Endereco,
+                    u.DataNascimento
                 })
                 .ToListAsync();
 
@@ -162,6 +180,7 @@ namespace Amparo_Tech_API.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<object>> GetUsuario(int id)
         {
+            _ = _userCtx.GetUserId(User);
             var usuario = await _context.usuariologin
                 .Include(u => u.Endereco)
                 .FirstOrDefaultAsync(u => u.IdUsuario == id);
@@ -180,7 +199,8 @@ namespace Amparo_Tech_API.Controllers
                 usuario.TipoUsuario,
                 usuario.DataCadastro,
                 usuario.Telefone,
-                usuario.Endereco
+                usuario.Endereco,
+                usuario.DataNascimento
             };
 
             return Ok(usuarioRetorno);
@@ -190,6 +210,7 @@ namespace Amparo_Tech_API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> PutUsuario(int id, Usuariologin usuario)
         {
+            _ = _userCtx.GetUserId(User);
             if (id != usuario.IdUsuario)
             {
                 return BadRequest();
@@ -240,7 +261,8 @@ namespace Amparo_Tech_API.Controllers
                 usuario.TipoUsuario,
                 usuario.DataCadastro,
                 usuario.Telefone,
-                usuario.Endereco
+                usuario.Endereco,
+                usuario.DataNascimento
             };
 
             return Ok(usuarioRetorno);
@@ -250,6 +272,7 @@ namespace Amparo_Tech_API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUsuario(int id)
         {
+            _ = _userCtx.GetUserId(User);
             var usuario = await _context.usuariologin.FindAsync(id);
 
             if (usuario == null)
@@ -265,6 +288,7 @@ namespace Amparo_Tech_API.Controllers
 
         // Verifica se e-mail já existe
         [HttpGet("email-existe")]
+        [AllowAnonymous]
         public async Task<ActionResult<bool>> VerificarEmailExistente(string email)
         {
             if (string.IsNullOrEmpty(email))
@@ -278,6 +302,7 @@ namespace Amparo_Tech_API.Controllers
 
         // Verifica se CPF já existe
         [HttpGet("cpf-existe")]
+        [AllowAnonymous]
         public async Task<ActionResult<bool>> VerificarCpfExistente(string cpf)
         {
             if (string.IsNullOrEmpty(cpf))
@@ -299,18 +324,26 @@ namespace Amparo_Tech_API.Controllers
             var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(keyString));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var claims = new[]
+            var claims = new List<Claim>
             {
-        new Claim(JwtRegisteredClaimNames.Sub, usuario.Email),
-        new Claim("idUsuario", usuario.IdUsuario.ToString()),
-        new Claim("tipoUsuario", usuario.TipoUsuario.ToString())
-    };
+                new Claim("idUsuario", usuario.IdUsuario.ToString()), // compatível com os controllers existentes
+                new Claim("idusuario", usuario.IdUsuario.ToString()), // variação minúscula para clientes que esperam assim
+                new Claim(ClaimTypes.Email, usuario.Email),
+                new Claim(ClaimTypes.Name, usuario.Nome ?? string.Empty),
+                new Claim(JwtRegisteredClaimNames.Sub, usuario.IdUsuario.ToString()),
+                new Claim("tipoUsuario", usuario.TipoUsuario.ToString())
+            };
+
+            if (usuario.DataNascimento.HasValue)
+            {
+                claims.Add(new Claim("dataNascimento", usuario.DataNascimento.Value.ToString("yyyy-MM-dd")));
+            }
 
             var token = new JwtSecurityToken(
                 issuer: _configuration["Jwt:Issuer"],
                 audience: _configuration["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.Now.AddHours(2),
+                expires: DateTime.UtcNow.AddHours(4),
                 signingCredentials: creds
             );
 

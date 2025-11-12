@@ -17,10 +17,174 @@ namespace Amparo_Tech_API.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.17")
+                .HasAnnotation("ProductVersion", "8.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
+
+            modelBuilder.Entity("Amparo_Tech_API.Models.Administrador", b =>
+                {
+                    b.Property<int>("IdAdministrador")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("idAdministrador");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdAdministrador"));
+
+                    b.Property<DateTime?>("DataCadastro")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("dataCadastro");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)")
+                        .HasColumnName("email");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)")
+                        .HasColumnName("nome");
+
+                    b.Property<string>("Senha")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)")
+                        .HasColumnName("senha");
+
+                    b.Property<DateTime?>("UltimoLogin")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("ultimoLogin");
+
+                    b.HasKey("IdAdministrador");
+
+                    b.ToTable("administrador");
+                });
+
+            modelBuilder.Entity("Amparo_Tech_API.Models.Categoria", b =>
+                {
+                    b.Property<int>("IdCategoria")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("idCategoria");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdCategoria"));
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)")
+                        .HasColumnName("descricao");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("nome");
+
+                    b.HasKey("IdCategoria");
+
+                    b.ToTable("categoria");
+                });
+
+            modelBuilder.Entity("Amparo_Tech_API.Models.DoacaoItem", b =>
+                {
+                    b.Property<int>("IdDoacaoItem")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("idDoacaoItem");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdDoacaoItem"));
+
+                    b.Property<string>("Condicao")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)")
+                        .HasColumnName("condicao");
+
+                    b.Property<DateTime>("DataDoacao")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("dataDoacao");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)")
+                        .HasColumnName("descricao");
+
+                    b.Property<int>("IdCategoria")
+                        .HasColumnType("int")
+                        .HasColumnName("idCategoria");
+
+                    b.Property<int>("IdDoador")
+                        .HasColumnType("int")
+                        .HasColumnName("idDoador");
+
+                    b.Property<int?>("IdInstituicaoAtribuida")
+                        .HasColumnType("int")
+                        .HasColumnName("idInstituicaoAtribuida");
+
+                    b.Property<string>("MidiaId")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .HasColumnName("midiaId");
+
+                    b.Property<int?>("RequeridoPor")
+                        .HasColumnType("int")
+                        .HasColumnName("requeridoPor");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Titulo")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)")
+                        .HasColumnName("titulo");
+
+                    b.HasKey("IdDoacaoItem");
+
+                    b.HasIndex("IdInstituicaoAtribuida");
+
+                    b.ToTable("doacaoitem");
+                });
+
+            modelBuilder.Entity("Amparo_Tech_API.Models.DoacaoMidia", b =>
+                {
+                    b.Property<int>("IdDoacaoMidia")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("idDoacaoMidia");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdDoacaoMidia"));
+
+                    b.Property<int>("IdDoacaoItem")
+                        .HasColumnType("int")
+                        .HasColumnName("idDoacaoItem");
+
+                    b.Property<string>("MidiaId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .HasColumnName("midiaId");
+
+                    b.Property<int?>("Ordem")
+                        .HasColumnType("int")
+                        .HasColumnName("ordem");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("IdDoacaoMidia");
+
+                    b.HasIndex("IdDoacaoItem");
+
+                    b.ToTable("doacaomidia");
+                });
 
             modelBuilder.Entity("Amparo_Tech_API.Models.Endereco", b =>
                 {
@@ -70,6 +234,111 @@ namespace Amparo_Tech_API.Migrations
                     b.ToTable("endereco");
                 });
 
+            modelBuilder.Entity("Amparo_Tech_API.Models.Instituicao", b =>
+                {
+                    b.Property<int>("IdInstituicao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("idInstituicao");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdInstituicao"));
+
+                    b.Property<string>("Cnpj")
+                        .HasMaxLength(18)
+                        .HasColumnType("varchar(18)")
+                        .HasColumnName("cnpj");
+
+                    b.Property<DateTime?>("DataCadastro")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("dataCadastro");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)")
+                        .HasColumnName("email");
+
+                    b.Property<int?>("IdEndereco")
+                        .HasColumnType("int")
+                        .HasColumnName("idEndereco");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)")
+                        .HasColumnName("nome");
+
+                    b.Property<string>("PessoaContato")
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)")
+                        .HasColumnName("pessoaContato");
+
+                    b.Property<string>("Senha")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)")
+                        .HasColumnName("senha");
+
+                    b.Property<string>("Telefone")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("telefone");
+
+                    b.Property<DateTime?>("UltimoLogin")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("ultimoLogin");
+
+                    b.HasKey("IdInstituicao");
+
+                    b.HasIndex("IdEndereco");
+
+                    b.ToTable("instituicao");
+                });
+
+            modelBuilder.Entity("Amparo_Tech_API.Models.Mensagem", b =>
+                {
+                    b.Property<int>("IdMensagem")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("idMensagem");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdMensagem"));
+
+                    b.Property<string>("Conteudo")
+                        .IsRequired()
+                        .HasColumnType("longtext")
+                        .HasColumnName("conteudo");
+
+                    b.Property<DateTime>("DataEnvio")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("dataEnvio");
+
+                    b.Property<int>("IdDestinatario")
+                        .HasColumnType("int")
+                        .HasColumnName("idDestinatario");
+
+                    b.Property<int>("IdDoacaoItem")
+                        .HasColumnType("int")
+                        .HasColumnName("idDoacaoItem");
+
+                    b.Property<int>("IdRemetente")
+                        .HasColumnType("int")
+                        .HasColumnName("idRemetente");
+
+                    b.Property<int>("TipoDestinatario")
+                        .HasColumnType("int")
+                        .HasColumnName("tipoDestinatario");
+
+                    b.Property<int>("TipoRemetente")
+                        .HasColumnType("int")
+                        .HasColumnName("tipoRemetente");
+
+                    b.HasKey("IdMensagem");
+
+                    b.HasIndex("IdDoacaoItem");
+
+                    b.ToTable("mensagem");
+                });
+
             modelBuilder.Entity("Amparo_Tech_API.Models.Usuariologin", b =>
                 {
                     b.Property<int>("IdUsuario")
@@ -86,6 +355,10 @@ namespace Amparo_Tech_API.Migrations
                     b.Property<DateTime?>("DataCadastro")
                         .HasColumnType("datetime(6)")
                         .HasColumnName("dataCadastro");
+
+                    b.Property<DateOnly?>("DataNascimento")
+                        .HasColumnType("date")
+                        .HasColumnName("dataNascimento");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -126,6 +399,46 @@ namespace Amparo_Tech_API.Migrations
                     b.ToTable("usuariologin");
                 });
 
+            modelBuilder.Entity("Amparo_Tech_API.Models.DoacaoItem", b =>
+                {
+                    b.HasOne("Amparo_Tech_API.Models.Instituicao", "InstituicaoAtribuida")
+                        .WithMany()
+                        .HasForeignKey("IdInstituicaoAtribuida");
+
+                    b.Navigation("InstituicaoAtribuida");
+                });
+
+            modelBuilder.Entity("Amparo_Tech_API.Models.DoacaoMidia", b =>
+                {
+                    b.HasOne("Amparo_Tech_API.Models.DoacaoItem", "DoacaoItem")
+                        .WithMany("Midias")
+                        .HasForeignKey("IdDoacaoItem")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DoacaoItem");
+                });
+
+            modelBuilder.Entity("Amparo_Tech_API.Models.Instituicao", b =>
+                {
+                    b.HasOne("Amparo_Tech_API.Models.Endereco", "Endereco")
+                        .WithMany()
+                        .HasForeignKey("IdEndereco");
+
+                    b.Navigation("Endereco");
+                });
+
+            modelBuilder.Entity("Amparo_Tech_API.Models.Mensagem", b =>
+                {
+                    b.HasOne("Amparo_Tech_API.Models.DoacaoItem", "Doacao")
+                        .WithMany()
+                        .HasForeignKey("IdDoacaoItem")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Doacao");
+                });
+
             modelBuilder.Entity("Amparo_Tech_API.Models.Usuariologin", b =>
                 {
                     b.HasOne("Amparo_Tech_API.Models.Endereco", "Endereco")
@@ -133,6 +446,11 @@ namespace Amparo_Tech_API.Migrations
                         .HasForeignKey("IdEndereco");
 
                     b.Navigation("Endereco");
+                });
+
+            modelBuilder.Entity("Amparo_Tech_API.Models.DoacaoItem", b =>
+                {
+                    b.Navigation("Midias");
                 });
 #pragma warning restore 612, 618
         }

@@ -39,6 +39,9 @@ namespace Amparo_Tech_API.Models
 
         [ForeignKey("IdEndereco")]
         public Endereco? Endereco { get; set; }
+
+        [Column("dataNascimento")]
+        public DateOnly? DataNascimento { get; set; }
     }
 
     public enum TipoUsuarioEnum
