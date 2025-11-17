@@ -8,6 +8,7 @@ using Amparo_Tech_API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Amparo_Tech_API.Extensions;
 namespace Amparo_Tech_API.Controllers
 {
     [Route("api/[controller]")]
@@ -67,17 +68,19 @@ namespace Amparo_Tech_API.Controllers
 
             var total = await q.CountAsync();
             var items = await q.Skip((page - 1) * pageSize).Take(pageSize)
-                .Select(d => new
+                .Select(d => new DoacaoViewDTO
                 {
-                    d.IdDoacaoItem,
-                    d.Titulo,
-                    d.Descricao,
-                    d.Condicao,
-                    d.IdCategoria,
-                    d.IdInstituicaoAtribuida,
-                    d.Status,
-                    d.DataDoacao,
-                    d.MidiaId
+                    IdDoador = d.IdDoador,
+                    IdDoacaoItem = d.IdDoacaoItem,
+                    Titulo = d.Titulo,
+                    Descricao = d.Descricao,
+                    Condicao = d.Condicao,
+                    IdCategoria = d.IdCategoria,
+                    IdInstituicaoAtribuida = d.IdInstituicaoAtribuida,
+                    Status = (int)d.Status,
+                    RequeridoPor = d.RequeridoPor,
+                    DataDoacao = d.DataDoacao,
+                    MidiaId = d.MidiaId
                 })
                 .ToListAsync();
 
@@ -96,7 +99,7 @@ namespace Amparo_Tech_API.Controllers
         [HttpGet("{id:int}")]
         public async Task<ActionResult> GetById(int id)
         {
-            var d = await _context.doacaoitem.AsNoTracking().Include(x => x.InstituicaoAtribuida).FirstOrDefaultAsync(x => x.IdDoacaoItem == id);
+            var d = await _context.doacaoitem.AsNoTracking().Include(x => x.InstituicaoAtribuida).ThenInclude(i => i.Endereco).FirstOrDefaultAsync(x => x.IdDoacaoItem == id);
             if (d == null) return NotFound();
             var midias = await _context.doacaomidia.Where(m => m.IdDoacaoItem == id).OrderBy(m => m.Ordem).ToListAsync();
 
@@ -108,7 +111,34 @@ namespace Amparo_Tech_API.Controllers
                 return StatusCode(304);
 
             Response.Headers["ETag"] = etag;
-            return Ok(new { doacao = d, midias });
+
+            var isAdmin = _userCtx.IsAdmin(User);
+            object? instSafe = null;
+            if (d.InstituicaoAtribuida != null)
+            {
+                instSafe = isAdmin ? d.InstituicaoAtribuida.ToAdminDTO() : d.InstituicaoAtribuida.ToViewDTO();
+            }
+
+            var midiaDtos = midias.Select(m => new DoacaoMidiaDTO { IdDoacaoMidia = m.IdDoacaoMidia, MidiaId = m.MidiaId, Tipo = m.Tipo, Ordem = m.Ordem }).ToList();
+
+            var doacaoSafe = new DoacaoViewDTO
+            {
+                IdDoacaoItem = d.IdDoacaoItem,
+                IdDoador = d.IdDoador,
+                IdCategoria = d.IdCategoria,
+                Titulo = d.Titulo,
+                Descricao = d.Descricao,
+                Condicao = d.Condicao,
+                MidiaId = d.MidiaId,
+                Midias = midiaDtos,
+                IdInstituicaoAtribuida = d.IdInstituicaoAtribuida,
+                InstituicaoAtribuida = instSafe,
+                RequeridoPor = d.RequeridoPor,
+                DataDoacao = d.DataDoacao,
+                Status = (int)d.Status
+            };
+
+            return Ok(new { doacao = doacaoSafe, midias = midiaDtos });
         }
 
         // GET: api/doacoes/minhas (para Doador)
@@ -370,6 +400,45 @@ namespace Amparo_Tech_API.Controllers
             doacao.RequeridoPor = idUsuario;
 
             await _context.SaveChangesAsync();
+
+            // create notification for institution (and admin)
+            try
+            {
+                var notify = HttpContext.RequestServices.GetService(typeof(Amparo_Tech_API.Services.INotificationService)) as Amparo_Tech_API.Services.INotificationService;
+                if (notify != null)
+                {
+                    var n = new Amparo_Tech_API.DTOs.NotificacaoDTO
+                    {
+                        Titulo = "Nova solicitação de doação",
+                        Conteudo = $"Usuário {idUsuario} solicitou a doação #{doacao.IdDoacaoItem}",
+                        Link = $"/doacoes/{doacao.IdDoacaoItem}",
+                        IdDestinatario = doacao.IdInstituicaoAtribuida ?? 0,
+                        TipoDestinatario = "Instituicao",
+                        IsRead = false,
+                        DataCriacao = DateTime.UtcNow.ToString("o")
+                    };
+                    await notify.SendNotificationAsync(n);
+
+                    // optionally notify admins too (all admins)
+                    var adminIds = await _context.administrador.Select(a => a.IdAdministrador).ToListAsync();
+                    foreach (var aid in adminIds)
+                    {
+                        var na = new Amparo_Tech_API.DTOs.NotificacaoDTO
+                        {
+                            Titulo = "Nova solicitação de doação",
+                            Conteudo = $"Doação #{doacao.IdDoacaoItem} aguardando confirmação",
+                            Link = $"/admin/doacoes/{doacao.IdDoacaoItem}",
+                            IdDestinatario = aid,
+                            TipoDestinatario = "Administrador",
+                            IsRead = false,
+                            DataCriacao = DateTime.UtcNow.ToString("o")
+                        };
+                        await notify.SendNotificationAsync(na);
+                    }
+                }
+            }
+            catch { }
+
             return Ok(new { Sucesso = true, Mensagem = "Solicitação enviada à instituição responsável." });
         }
 

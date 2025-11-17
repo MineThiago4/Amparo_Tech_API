@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace Amparo_Tech_API.Models
 {
@@ -10,6 +11,8 @@ namespace Amparo_Tech_API.Models
         Administrador = 2
     }
 
+    [Index(nameof(IdRemetente), nameof(TipoRemetente))]
+    [Index(nameof(IdDestinatario), nameof(TipoDestinatario))]
     [Table("mensagem")]
     public class Mensagem
     {
@@ -33,9 +36,9 @@ namespace Amparo_Tech_API.Models
         [Column("tipoDestinatario")]
         public TipoParticipanteMensagem TipoDestinatario { get; set; } = TipoParticipanteMensagem.Usuario;
 
-        [Required]
+        // agora opcional: mensagem pode não estar atrelada a uma doação
         [Column("idDoacaoItem")]
-        public int IdDoacaoItem { get; set; }
+        public int? IdDoacaoItem { get; set; }
 
         [Required]
         [Column("conteudo")]

@@ -5,8 +5,8 @@ namespace Amparo_Tech_API.DTOs
 {
     public class MensagemEnvioDTO
     {
-        [Required]
-        public int IdDoacaoItem { get; set; }
+        // now optional: message may not be tied to a donation
+        public int? IdDoacaoItem { get; set; }
 
         [Required]
         public int IdDestinatario { get; set; }

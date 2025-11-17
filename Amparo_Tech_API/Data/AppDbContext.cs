@@ -13,6 +13,8 @@ namespace Amparo_Tech_API.Data
         public DbSet<DoacaoItem> doacaoitem { get; set; }
         public DbSet<DoacaoMidia> doacaomidia { get; set; }
         public DbSet<Mensagem> mensagem { get; set; }
+        public DbSet<Notificacao> notificacao { get; set; }
+        public DbSet<DeviceToken> devicetoken { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

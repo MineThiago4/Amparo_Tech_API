@@ -9,6 +9,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Amparo_Tech_API.DTOs;
 using System.Text;
+using Amparo_Tech_API.Extensions;
 
 namespace Amparo_Tech_API.Controllers
 {
@@ -24,25 +25,18 @@ namespace Amparo_Tech_API.Controllers
         {
             _context = context; _userCtx = userCtx; _cfg = cfg;
         }
+
         [HttpGet]
         public async Task<ActionResult> Get()
         {
             _ = _userCtx.GetUserId(User);
-            var lista = await _context.instituicao
-                .Include(i => i.Endereco)
-                .AsNoTracking()
-                .Select(i => new {
-                    i.IdInstituicao,
-                    i.Nome,
-                    i.Email,
-                    i.Cnpj,
-                    i.Telefone,
-                    i.PessoaContato,
-                    i.DataCadastro,
-                    Endereco = i.Endereco
-                })
-                .ToListAsync();
-            return Ok(lista);
+            var list = await _context.instituicao.Include(i => i.Endereco).AsNoTracking().ToListAsync();
+
+            bool isAdmin = _userCtx.IsAdmin(User);
+
+            var result = list.Select(i => isAdmin ? (object)i.ToAdminDTO() : (object)i.ToViewDTO()).ToList();
+
+            return Ok(result);
         }
 
         // Criar instituição (admin) com endereço opcional

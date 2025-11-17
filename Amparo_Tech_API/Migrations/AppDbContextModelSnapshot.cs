@@ -87,6 +87,43 @@ namespace Amparo_Tech_API.Migrations
                     b.ToTable("categoria");
                 });
 
+            modelBuilder.Entity("Amparo_Tech_API.Models.DeviceToken", b =>
+                {
+                    b.Property<int>("IdDeviceToken")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("idDeviceToken");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdDeviceToken"));
+
+                    b.Property<DateTime>("DataCriacao")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("dataCriacao");
+
+                    b.Property<int>("IdOwner")
+                        .HasColumnType("int")
+                        .HasColumnName("idOwner");
+
+                    b.Property<string>("Platform")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("platform");
+
+                    b.Property<int>("TipoOwner")
+                        .HasColumnType("int")
+                        .HasColumnName("tipoOwner");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)")
+                        .HasColumnName("token");
+
+                    b.HasKey("IdDeviceToken");
+
+                    b.ToTable("devicetoken");
+                });
+
             modelBuilder.Entity("Amparo_Tech_API.Models.DoacaoItem", b =>
                 {
                     b.Property<int>("IdDoacaoItem")
@@ -316,7 +353,7 @@ namespace Amparo_Tech_API.Migrations
                         .HasColumnType("int")
                         .HasColumnName("idDestinatario");
 
-                    b.Property<int>("IdDoacaoItem")
+                    b.Property<int?>("IdDoacaoItem")
                         .HasColumnType("int")
                         .HasColumnName("idDoacaoItem");
 
@@ -336,7 +373,69 @@ namespace Amparo_Tech_API.Migrations
 
                     b.HasIndex("IdDoacaoItem");
 
+                    b.HasIndex("IdDestinatario", "TipoDestinatario");
+
+                    b.HasIndex("IdRemetente", "TipoRemetente");
+
                     b.ToTable("mensagem");
+                });
+
+            modelBuilder.Entity("Amparo_Tech_API.Models.Notificacao", b =>
+                {
+                    b.Property<int>("IdNotificacao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("idNotificacao");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("IdNotificacao"));
+
+                    b.Property<string>("Conteudo")
+                        .IsRequired()
+                        .HasColumnType("longtext")
+                        .HasColumnName("conteudo");
+
+                    b.Property<string>("Data")
+                        .HasColumnType("longtext")
+                        .HasColumnName("data");
+
+                    b.Property<DateTime>("DataCriacao")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("dataCriacao");
+
+                    b.Property<int>("IdDestinatario")
+                        .HasColumnType("int")
+                        .HasColumnName("idDestinatario");
+
+                    b.Property<int?>("IdRemetente")
+                        .HasColumnType("int")
+                        .HasColumnName("idRemetente");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit(1)")
+                        .HasColumnName("isRead");
+
+                    b.Property<string>("Link")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)")
+                        .HasColumnName("link");
+
+                    b.Property<int>("TipoDestinatario")
+                        .HasColumnType("int")
+                        .HasColumnName("tipoDestinatario");
+
+                    b.Property<int?>("TipoRemetente")
+                        .HasColumnType("int")
+                        .HasColumnName("tipoRemetente");
+
+                    b.Property<string>("Titulo")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("varchar(250)")
+                        .HasColumnName("titulo");
+
+                    b.HasKey("IdNotificacao");
+
+                    b.ToTable("notificacao");
                 });
 
             modelBuilder.Entity("Amparo_Tech_API.Models.Usuariologin", b =>
@@ -432,9 +531,7 @@ namespace Amparo_Tech_API.Migrations
                 {
                     b.HasOne("Amparo_Tech_API.Models.DoacaoItem", "Doacao")
                         .WithMany()
-                        .HasForeignKey("IdDoacaoItem")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("IdDoacaoItem");
 
                     b.Navigation("Doacao");
                 });

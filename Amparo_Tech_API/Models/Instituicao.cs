@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 namespace Amparo_Tech_API.Models
 {
     [Table("instituicao")]
@@ -18,6 +19,7 @@ namespace Amparo_Tech_API.Models
         [StringLength(200)]
         public string Email { get; set; }
 
+        [JsonIgnore]
         [Column("senha")]
         [StringLength(200)]
         public string? Senha { get; set; }
@@ -30,9 +32,11 @@ namespace Amparo_Tech_API.Models
         [StringLength(30)]
         public string? Telefone { get; set; }
 
+        [JsonIgnore]
         [Column("dataCadastro")]
         public DateTime? DataCadastro { get; set; }
 
+        [JsonIgnore]
         [Column("ultimoLogin")]
         public DateTime? UltimoLogin { get; set; }
 

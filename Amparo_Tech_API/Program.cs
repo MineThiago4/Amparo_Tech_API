@@ -8,6 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.SignalR;
+using Amparo_Tech_API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,11 +25,10 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Amparo_Tech_API", Version = "v1" });
 
-    // Definição do esquema de segurança JWT Bearer
     var jwtScheme = new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Description = "Informe apenas o token JWT. O prefixo 'Bearer' será adicionado automaticamente.",
+        Description = "Cole apenas o token JWT (sem o prefixo 'Bearer '). Ao usar 'Authorize' no Swagger, insira somente o token.",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
         Scheme = "bearer",
@@ -73,13 +74,13 @@ builder.Services.AddCors(options =>
             })
             .AllowAnyHeader()
             .AllowAnyMethod()
-        );
+    );
 
     // CORS para o app MAUI (mantido)
     options.AddPolicy("AllowMaui", p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 });
 
-// Registra servi?o de criptografia de mensagens
+// Registra serviço de criptografia de mensagens
 builder.Services.AddSingleton<IMessageCryptoService, AesGcmMessageCryptoService>();
 
 // Registra política de mídia (centraliza limites de upload e validações)
@@ -88,8 +89,8 @@ builder.Services.AddSingleton<IMediaPolicyService, DefaultMediaPolicyService>();
 // Registra serviço de contexto do usuário (centraliza claims e perfis)
 builder.Services.AddSingleton<IUserContextService, DefaultUserContextService>();
 
-// Rate limiting (configur?vel)
-var rlPermitLimit = builder.Configuration.GetValue<int?>("RateLimiting:PermitLimit") ?? 1000; // padr?o alto
+// Rate limiting (configurável)
+var rlPermitLimit = builder.Configuration.GetValue<int?>("RateLimiting:PermitLimit") ?? 1000; // padrão alto
 var rlWindowSec = builder.Configuration.GetValue<int?>("RateLimiting:WindowSeconds") ?? 60;
 var rlQueueLimit = builder.Configuration.GetValue<int?>("RateLimiting:QueueLimit") ?? 0;
 var rlQueueProc = builder.Configuration.GetValue<QueueProcessingOrder>("RateLimiting:QueueProcessingOrder");
@@ -107,7 +108,7 @@ builder.Services.AddRateLimiter(options =>
         options.QueueProcessingOrder = rlQueueProc;
     });
 
-    // Pol?tica padr?o
+    // Política padrão
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -141,9 +142,26 @@ builder.Services
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key não configurado")))
         };
+        o.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"].FirstOrDefault();
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/notifications"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
+
+// Register Notification service and SignalR
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -159,6 +177,28 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+// Normalize Authorization header to handle accidental double 'Bearer ' prefixes from Swagger UI copy/paste
+app.Use(async (context, next) =>
+{
+    var auth = context.Request.Headers["Authorization"].ToString();
+    if (!string.IsNullOrEmpty(auth))
+    {
+        // common mistakes: "Bearer Bearer <token>" or "BearerBearer <token>"
+        if (auth.StartsWith("Bearer Bearer ", StringComparison.OrdinalIgnoreCase))
+            context.Request.Headers["Authorization"] = "Bearer " + auth.Substring("Bearer Bearer ".Length);
+        else if (auth.StartsWith("BearerBearer ", StringComparison.OrdinalIgnoreCase))
+            context.Request.Headers["Authorization"] = "Bearer " + auth.Substring("BearerBearer ".Length);
+        else if (auth.StartsWith("Bearer ") && auth.Count(c => c == ' ') > 1)
+        {
+            // collapse multiple spaces
+            var parts = auth.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2 && parts[0].Equals("Bearer", StringComparison.OrdinalIgnoreCase))
+                context.Request.Headers["Authorization"] = "Bearer " + parts[1];
+        }
+    }
+    await next();
+});
+
 // CORS deve vir antes de Auth/Authorization
 app.UseCors("AllowPanel");
 // opcional: se o app MAUI também for utilizado em paralelo
@@ -168,5 +208,6 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers().RequireRateLimiting("fixed");
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.Run();

@@ -5,7 +5,9 @@ namespace Amparo_Tech_API.DTOs
 {
     public class DoacaoCadastroDTO : IValidatableObject
     {
-        [Required, StringLength(120)] public string Titulo { get; set; }
+        [Required, StringLength(120)] 
+        public string Titulo { get; set; }
+
         [Required, StringLength(1000)]
         public string Descricao { get; set; }
 
