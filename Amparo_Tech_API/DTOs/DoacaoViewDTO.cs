@@ -18,5 +18,6 @@ namespace Amparo_Tech_API.DTOs
         public int? RequeridoPor { get; set; }
         public DateTime DataDoacao { get; set; }
         public int Status { get; set; }
+        public string StatusName { get; set; }
     }
 }

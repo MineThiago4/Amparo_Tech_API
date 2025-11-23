@@ -36,7 +36,7 @@ namespace Amparo_Tech_API.Controllers
         public async Task<ActionResult> Get(
             [FromQuery] int? categoria,
             [FromQuery] DoacaoStatusEnum? status,
-            [FromQuery] int? instituicaoId,
+            [FromQuery] int?instituicaoId,
             [FromQuery] int? doadorId,
             [FromQuery] DateTime? dataIni,
             [FromQuery] DateTime? dataFim,
@@ -51,7 +51,7 @@ namespace Amparo_Tech_API.Controllers
             var q = _context.doacaoitem.AsNoTracking().AsQueryable();
             if (categoria.HasValue) q = q.Where(d => d.IdCategoria == categoria.Value);
             if (status.HasValue) q = q.Where(d => d.Status == status.Value);
-            if (instituicaoId.HasValue) q = q.Where(d => d.IdInstituicaoAtribuida == instituicaoId.Value);
+            if (instituicaoId.HasValue) q = q.Where(d => d.IdInstituicaoAtribuida ==instituicaoId.Value);
             if (doadorId.HasValue) q = q.Where(d => d.IdDoador == doadorId.Value);
             if (dataIni.HasValue) q = q.Where(d => d.DataDoacao >= dataIni.Value);
             if (dataFim.HasValue) q = q.Where(d => d.DataDoacao <= dataFim.Value);
@@ -67,22 +67,25 @@ namespace Amparo_Tech_API.Controllers
             };
 
             var total = await q.CountAsync();
-            var items = await q.Skip((page - 1) * pageSize).Take(pageSize)
-                .Select(d => new DoacaoViewDTO
-                {
-                    IdDoador = d.IdDoador,
-                    IdDoacaoItem = d.IdDoacaoItem,
-                    Titulo = d.Titulo,
-                    Descricao = d.Descricao,
-                    Condicao = d.Condicao,
-                    IdCategoria = d.IdCategoria,
-                    IdInstituicaoAtribuida = d.IdInstituicaoAtribuida,
-                    Status = (int)d.Status,
-                    RequeridoPor = d.RequeridoPor,
-                    DataDoacao = d.DataDoacao,
-                    MidiaId = d.MidiaId
-                })
-                .ToListAsync();
+
+            // Materialize entities first to avoid translation issues when enum is stored as string in the provider
+            var entities = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+            var items = entities.Select(d => new DoacaoViewDTO
+            {
+                IdDoador = d.IdDoador,
+                IdDoacaoItem = d.IdDoacaoItem,
+                Titulo = d.Titulo,
+                Descricao = d.Descricao,
+                Condicao = d.Condicao,
+                IdCategoria = d.IdCategoria,
+                IdInstituicaoAtribuida = d.IdInstituicaoAtribuida,
+                StatusName = d.Status.ToString(),
+                Status = (int)d.Status,
+                RequeridoPor = d.RequeridoPor,
+                DataDoacao = d.DataDoacao,
+                MidiaId = d.MidiaId
+            }).ToList();
 
             // ETag para coleção baseada nos parâmetros + ids/versões dos itens
             var signature = $"list:{page}:{pageSize}:{categoria}:{status}:{instituicaoId}:{doadorId}:{dataIni}:{dataFim}:{sortBy}:{sortDir}:{total}:{string.Join(',', items.Select(i => $"{i.IdDoacaoItem}-{i.Status}-{i.DataDoacao.Ticks}"))}";
@@ -135,7 +138,8 @@ namespace Amparo_Tech_API.Controllers
                 InstituicaoAtribuida = instSafe,
                 RequeridoPor = d.RequeridoPor,
                 DataDoacao = d.DataDoacao,
-                Status = (int)d.Status
+                Status = (int)d.Status,
+                StatusName = d.Status.ToString()
             };
 
             return Ok(new { doacao = doacaoSafe, midias = midiaDtos });
@@ -505,9 +509,17 @@ namespace Amparo_Tech_API.Controllers
             if (!_userCtx.IsAdmin(User) && !isInstituicao)
                 return Forbid("Sem permissão para alterar status.");
 
+            var previous = doacao.Status.ToString();
             doacao.Status = novo;
-            await _context.SaveChangesAsync();
-            return Ok(new { Sucesso = true });
+            var affected = await _context.SaveChangesAsync();
+
+            if (affected == 0)
+            {
+                var current = await _context.doacaoitem.AsNoTracking().Where(d => d.IdDoacaoItem == id).Select(d => d.Status).FirstOrDefaultAsync();
+                return Ok(new { Sucesso = false, Changed = affected, PreviousStatus = previous, CurrentStatus = current.ToString() });
+            }
+
+            return Ok(new { Sucesso = true, Changed = affected, PreviousStatus = previous, NovoStatus = doacao.Status.ToString() });
         }
     }
 }
