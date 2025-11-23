@@ -283,7 +283,7 @@ namespace Amparo_Tech_API.Controllers
             _context.usuariologin.Remove(usuario);
             await _context.SaveChangesAsync();
 
-            return NoContent();
+            return Ok(new { Sucesso = true });
         }
 
         // Verifica se e-mail já existe
