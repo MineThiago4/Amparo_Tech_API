@@ -175,5 +175,16 @@ namespace Amparo_Tech_API.Controllers
             );
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
+
+        // GET: api/instituicoes/{id}
+        [HttpGet("{id:int}")]
+        public async Task<ActionResult> GetById(int id)
+        {
+            _ = _userCtx.GetUserId(User);
+            var inst = await _context.instituicao.Include(i => i.Endereco).AsNoTracking().FirstOrDefaultAsync(i => i.IdInstituicao == id);
+            if (inst == null) return NotFound();
+            var dto = _userCtx.IsAdmin(User) ? (object)inst.ToAdminDTO() : (object)inst.ToViewDTO();
+            return Ok(dto);
+        }
     }
 }
